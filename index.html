@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script src="//d3js.org/topojson.v2.min.js"></script>
+<script>
+
+var width = 1300
+    height = 720,
+    origin = [71, -42,0],
+    velocity = [0.01,.0005,0],
+    satVel = -.05
+    t0 = Date.now();
+
+var svg = d3.select("svg");
+
+var sphere = {type: "Sphere"};
+
+var globeProjection = d3.geo.orthographic()
+    .scale(height / 2.75)
+    .translate([width / 2, height / 2])
+    .clipAngle(90)
+    .precision(.5);
+
+ var plane1Projection = d3.geo.orthographic()
+    .scale(height / 2.5)
+    .translate([width / 2, height / 2])
+    .clipAngle(113)
+    .precision(.5);
+
+var canvas = d3.select("body").append("canvas")
+    .attr("width", width)
+    .attr("height", height);
+
+var context = canvas.node().getContext("2d");
+
+var globePath = d3.geo.path()
+    .projection(globeProjection)
+    .context(context);
+
+var satPath = d3.geo.path()
+    .projection(plane1Projection)
+    .context(context); 
+
+d3.json("https://gist.githubusercontent.com/mbostock/4090846/raw/d534aba169207548a8a3d670c9c2cc719ff05c47/world-110m.json", 
+	function(error, topo) {
+	  if (error) throw error;
+	  var land = topojson.feature(topo, topo.objects.land);
+	  
+	  d3.json("points.json",
+
+		  function(error, satellites) {
+		    if (error) throw error;
+  			
+		    // console.log(satellites);
+		    // console.log(sats);
+			    d3.timer(function() {
+			      var dt = Date.now() - t0;
+			      
+			      //Rotate orbit and globe
+			      plane1Projection.rotate([velocity[0] * dt + origin[0], velocity[1] * dt + velocity[1] * dt + origin[1], velocity[2] * dt + origin[2]]);
+
+			      globeProjection.rotate([velocity[0] * dt + origin[0], velocity[1] * dt + origin[1],velocity[2] * dt + origin[2]]);
+
+			      context.clearRect(0, 0, width, height);
+			      context.beginPath();
+			      globePath(sphere);
+			      context.lineWidth = 4;
+			      context.strokeStyle = "blue";
+
+			      n = satellites.objects.plane1.length;
+			      
+			      for (i = 0; i < n; i++) {
+			      	  var predict = satellites.objects.plane1[i]['predict'];
+			      	  var sats = topojson.feature(satellites, satellites.objects.plane1[i]);
+				      context.stroke();
+				      context.beginPath();
+				      satPath(sats);
+				      if (predict == 1) { 
+				      	context.lineWidth = 5; 
+				      	context.strokeStyle = "green";
+				      }
+				      else if (predict == 0) {
+				        context.lineWidth = 5;
+				        context.strokeStyle = "red";
+				      }
+				      else if (predict == 2) {
+				        context.lineWidth = 0.5;
+				        context.strokeStyle = "gray";
+				      }
+				  }
+
+			      context.stroke();
+			      context.beginPath();
+			      satPath(sphere);
+			      context.lineWidth = 4;
+			      context.strokeStyle = "aqua";
+
+			      context.stroke();
+			      context.beginPath();
+			      globePath(land);
+			      context.lineWidth = 1;
+			      context.strokeStyle = "black";
+			      context.stroke();
+			    });
+	   });   
+	});
+
+d3.select(self.frameElement).style("height", height + "px");
+</script>
